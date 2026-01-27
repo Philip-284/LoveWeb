@@ -1,0 +1,780 @@
+<html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爱心树计时器</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- GSAP 动画库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#ff6b6b',
+                        secondary: '#4ecdc4',
+                        heartRed: '#ff3b30',
+                        heartBlue: '#007aff',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'float': 'float 3s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .heart-shadow {
+                filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+            }
+            .photo-hover {
+                transition: all 0.3s ease;
+            }
+            .photo-hover:hover {
+                transform: scale(1.05);
+            }
+            .glass-effect {
+                background: rgba(255, 255, 255, 0.25);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+            }
+            .heart-animation {
+                position: absolute;
+                pointer-events: none;
+                z-index: 50;
+            }
+        }
+        
+        /* 自定义样式 */
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .heart {
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.2s ease;
+        }
+        
+        .heart:active {
+            cursor: grabbing;
+            transform: scale(1.1);
+        }
+        
+        .heart-tree-container {
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+        
+        .heart-tree-container.visible {
+            opacity: 1;
+        }
+        
+        .timer-container {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.8s ease;
+        }
+        
+        .timer-container.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .photos-container {
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+        
+        .photos-container.visible {
+            opacity: 1;
+        }
+        
+        .photo-item {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s ease;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            overflow: auto;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal.show {
+            opacity: 1;
+        }
+        
+        .modal.show .modal-content {
+            transform: translate(-50%, -50%) scale(1);
+        }
+        
+        .close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        
+        .close:hover {
+            color: #bbb;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-start pt-16 pb-20">
+    <!-- 初始爱心容器 -->
+    <div id="hearts-container" class="flex justify-center items-center gap-12 mb-16">
+        <div id="red-heart" class="heart heart-shadow animate-float" draggable="true">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z" fill="#ff3b30"></path>
+            </svg>
+        </div>
+        <div id="blue-heart" class="heart heart-shadow animate-float" draggable="true" style="animation-delay: 0.5s;">
+            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z" fill="#007aff" fill-opacity="0.8"></path>
+            </svg>
+        </div>
+    </div>
+    
+    <!-- 爱心树容器 -->
+    <div id="heart-tree-container" class="heart-tree-container mb-12">
+        <img id="heart-tree" src="https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/code_assistant/dfda0a3d22744112bacbbc56ca3804ab~tplv-a9rns2rl98-image.image?lk3s=8e244e95&amp;rcl=20260123095142A21384FBC06B4803EBBC&amp;rrcfp=2609e108&amp;x-expires=1769737906&amp;x-signature=8F%2BhoZhGa41Y2AEch50xSScWoIU%3D" alt="爱心树" class="w-64 h-auto rounded-lg shadow-lg">
+    </div>
+    
+    <!-- 计时器容器 -->
+    <div id="timer-container" class="timer-container glass-effect rounded-xl p-6 mb-16 shadow-lg">
+        <h2 class="text-2xl font-bold text-center mb-6 text-gray-800">我们在一起的时间</h2>
+        <div class="grid grid-cols-6 gap-4 text-center">
+            <div class="flex flex-col items-center">
+                <span id="years" class="text-3xl font-bold text-heartRed">0</span>
+                <span class="text-sm text-gray-600 mt-1">年</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <span id="months" class="text-3xl font-bold text-heartBlue">0</span>
+                <span class="text-sm text-gray-600 mt-1">月</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <span id="days" class="text-3xl font-bold text-green-500">0</span>
+                <span class="text-sm text-gray-600 mt-1">日</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <span id="hours" class="text-3xl font-bold text-purple-500">0</span>
+                <span class="text-sm text-gray-600 mt-1">时</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <span id="minutes" class="text-3xl font-bold text-yellow-500">0</span>
+                <span class="text-sm text-gray-600 mt-1">分</span>
+            </div>
+            <div class="flex flex-col items-center">
+                <span id="seconds" class="text-3xl font-bold text-pink-500">0</span>
+                <span class="text-sm text-gray-600 mt-1">秒</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 照片容器 -->
+    <div id="photos-container" class="photos-container w-full max-w-4xl px-4">
+        <h3 class="text-xl font-bold text-center mb-8 text-gray-800">我们的回忆</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './firsttime.jpg',
+                title: '开始的地方',
+                description: '曾今的新光天地，现在的烧烤老炮^o^，我第一次跟女生表白，你第一次按下了网页上的爱心，时间就此开始，永远记录在我的数据库中: 2025-02-02 17:45:28'
+            })">
+                <img src="./firsttime.jpg" alt="表白" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">开始的地方</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">曾今的新光天地，现在的烧烤老炮^o^，我第一次跟女生表白...</p>
+                </div>
+            </div>
+            <div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './meixin.jpg',
+                title: '第一次出游',
+                description: '在一起后第一次去美心红酒广场玩，在小火车上拍下了第一张双人照片。'
+            })">
+                <img src="./meixin.jpg" alt="美心小火车" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">第一次出游</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">在一起后第一次去美心红酒广场玩，在小火车上...</p>
+                </div>
+            </div>
+            <div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './winetown.jpg',
+                title: '第一个情人节',
+                description: '第一次情人节，去了红酒小镇，算是第一次出远门。到鸡公山的山顶瞭望台上拍下了这张照片。'
+            })">
+                <img src="./winetown.jpg" alt="情人节" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">第一个情人节</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">第一次情人节，去了红酒小镇，算是第一次出远门...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './handmade.jpg',
+                title: '第一次手工',
+                description: '一起去做陶艺，结果第一次泥越搞越稀，第一个作品失败，最后靠老板给做了核心形状。但是其它的外形配件和颜色都是自己做的（叉腰）'
+            })">
+                <img src="./handmade.jpg" alt="陶艺" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">第一次手工</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">一起去做陶艺，结果第一次泥越搞越稀，第一个作品...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './zhaomumount.jpg',
+                title: '第一次飞行',
+                description: '有了无人机后，第一次一起去照母山飞飞机，但是使用并不熟练，也没有剪辑的思维，完全是大师镜头自动飞。同时这周我们还去吃了熔岩巧克力，现在甜品店的照片还是我手机QQ和宝宝的聊天背景。'
+            })">
+                <img src="./zhaomumount.jpg" alt="无人机" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">第一次飞行</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">有了无人机后，第一次一起去照母山飞飞机，但是...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './southsea.jpg',
+                title: '五一小南海',
+                description: '五一最后几天，经过加班后终于能够呆在一块，去到了小南海。经过几次练习和剪辑尝试，第一次完整地剪出比较满意的出游片子，也是宝宝视频文件下收录的第一个视频。'
+            })">
+                <img src="./southsea.jpg" alt="小南海" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">五一小南海</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">五一最后几天，经过加班后终于能够呆在一块，去到了小南海...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './startlight.jpg',
+                title: '生日1',
+                description: '第一次和宝宝一起过生日，吃了叉烧和避风塘螃蟹嘻嘻，当然还有宝宝的星空小夜灯和小礼物嘿嘿'
+            })">
+                <img src="./startlight.jpg" alt="生日1" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">生日1</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">第一次和宝宝一起过生日，吃了叉烧和避风塘螃蟹嘻嘻...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './luminefly.jpg',
+                title: '找萤火虫',
+                description: '想要在夏天去找萤火虫，按着地点跑了过去，结果发现找错了地方哈哈。后来抱着不死心的想法在里面逛了一大圈，唯一闪光的就只有地上的灯。'
+            })">
+                <img src="./luminefly.jpg" alt="萤火虫" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">找萤火虫</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">想要在夏天去找萤火虫，按着地点跑了过去，结果发现找错了...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './birthday.jpg',
+                title: '生日2',
+                description: '第一次给宝宝过生日，去武陵山上露营，肆意飞飞机。感受了一下睡在野外的感觉，同时第一次拍到了星空和日出，云雾滚动。'
+            })">
+                <img src="./birthday.jpg" alt="生日2" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">生日2</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">第一次给宝宝过生日，去武陵山上露营，肆意飞飞机。感受了一下...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './swim.jpg',
+                title: '玩水',
+                description: '第一次一起去游泳，在水上乐园里还遇上了田一鸣哈哈，晚上在大泳池坐泳圈上听演唱会看烟花，从未有过的新奇体验哈哈，宝宝画板上的烟花打卡完成。'
+            })">
+                <img src="./swim.jpg" alt="玩水" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">玩水</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">第一次一起去游泳，在水上乐园里还遇上了田一鸣哈哈，晚上在大泳池...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './droneshow.jpg',
+                title: '无人机表演',
+                description: '拿到了360后，第一次一起看无人表演，虽然表演里一半以上都是广告，而且贼挤，但也还算不错哈哈。在这之前我们还去了海洋馆'
+            })">
+                <img src="./droneshow.jpg" alt="无人机表演" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">无人机表演</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">拿到了360后，第一次一起看无人表演，虽然表演里一半以上都是广告...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './zoopark.jpg',
+                title: '乐和乐都',
+                description: '七夕节，去了乐和乐都，坐车上近距离看和接触各种野生动物，玩各种不怎么刺激的游乐设施（我怕）。也是第一写视频脚本来拍出游记录。'
+            })">
+                <img src="./zoopark.jpg" alt="乐和乐都" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">乐和乐都</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">七夕节，去了乐和乐都，坐车上近距离看和接触各种野生动物...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './dawa.JPG',
+                title: '国庆',
+                description: '国庆节，加班结束后，去了雅安吃鱼，海螺沟看冰川，华尖山徒步（没走上去哈哈），达瓦更扎看雾（还是有一点雪山），虽然比较累，而且总是赶上坏天气，但是风景都在路上。'
+            })">
+                <img src="./dawa.JPG" alt="国庆" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">国庆</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">国庆节，加班结束后，去了雅安吃鱼，海螺沟看冰川，华尖山徒...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './sunfall.jpg',
+                title: '追太阳',
+                description: '在经历了国庆的糟糕天气后学习看天气，找到机会了就一起去山上追太阳，最开始到处查攻略，到后来还是发现，地图加自我判断比攻略更加重要，对天气的判断基本准确，看到了日落，没赌到日出哈哈。'
+            })">
+                <img src="./sunfall.jpg" alt="追太阳" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">追太阳</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">在经历了国庆的糟糕天气后学习看天气，找到机会了就一起去山上...</p>
+                </div>
+            </div>
+			<div class="photo-item overflow-hidden rounded-lg shadow-md cursor-pointer" onclick="openModal({
+                img: './ski1.jpg',
+                title: '金佛山',
+                description: '终于是等到了冬天山上下雪的时候，去金佛山看雪滑雪，虽然一天之内雪就化光了，但是新技能get。以后去北方也可以有除了在雪里打滚外更多的玩法哈哈。'
+            })">
+                <img src="./ski1.jpg" alt="金佛山" class="w-full h-48 object-cover photo-hover">
+                <div class="p-4 bg-white">
+                    <h4 class="text-lg font-bold text-gray-800">金佛山</h4>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">终于是等到了冬天山上下雪的时候，去金佛山看雪滑雪，虽然一天之内...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 图片查看器模态框 -->
+    <div id="image-modal" class="modal" onclick="closeModal()">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row">
+                <!-- 关闭按钮 -->
+                <button class="absolute top-4 right-4 bg-black bg-opacity-50 rounded-full w-10 h-10 flex items-center justify-center text-white hover:bg-opacity-70 transition-all z-10" onclick="closeModal()">
+                    <span class="close text-xl">&times;</span>
+                </button>
+                
+                <!-- 左侧图片 -->
+                <div class="w-full md:w-2/3 h-64 md:h-auto bg-gray-100">
+                    <img class="w-full h-full object-cover" id="modal-img" alt="照片详情">
+                </div>
+                
+                <!-- 右侧内容 -->
+                <div class="w-full md:w-1/3 p-6 overflow-y-auto" id="modal-content">
+                    <h2 id="modal-title" class="text-xl font-bold mb-3 text-gray-800"></h2>
+                    <p id="modal-description" class="text-gray-600 leading-relaxed text-sm"></p>
+                    
+                    <!-- 底部互动栏
+                    <div class="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <button class="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors">
+                                <i class="fa fa-heart-o text-lg"></i>
+                                <span class="text-sm"></span>
+                            </button>
+                            <button class="flex items-center space-x-1 text-gray-500 hover:text-blue-500 transition-colors">
+                                <i class="fa fa-comment-o text-lg"></i>
+                                <span class="text-sm"></span>
+                            </button>
+                        </div>
+                        <button class="text-gray-500 hover:text-gray-700 transition-colors">
+                            <i class="fa fa-share-alt text-lg"></i>
+                        </button>
+                    </div>
+					-->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let isHeartsCombined = false;
+        let timerInterval = null;
+        
+        // DOM 元素
+        const redHeart = document.getElementById('red-heart');
+        const blueHeart = document.getElementById('blue-heart');
+        const heartsContainer = document.getElementById('hearts-container');
+        const heartTreeContainer = document.getElementById('heart-tree-container');
+        const timerContainer = document.getElementById('timer-container');
+        const photosContainer = document.getElementById('photos-container');
+        const photoItems = document.querySelectorAll('.photo-item');
+        
+        // 简化的拖拽功能
+        let isDragging = false;
+        let currentHeart = null;
+        
+        // 为爱心添加鼠标事件
+        [redHeart, blueHeart].forEach(heart => {
+            // 鼠标按下开始拖拽
+            heart.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                currentHeart = this;
+                this.style.cursor = 'grabbing';
+                
+                // 记录初始位置
+                const rect = this.getBoundingClientRect();
+                this.dataset.offsetX = e.clientX - rect.left;
+                this.dataset.offsetY = e.clientY - rect.top;
+                
+                // 设置为绝对定位
+                this.style.position = 'absolute';
+                this.style.zIndex = '10';
+                this.style.left = `${rect.left}px`;
+                this.style.top = `${rect.top}px`;
+                this.style.margin = '0';
+                
+                // 阻止默认行为和冒泡
+                e.preventDefault();
+            });
+        });
+        
+        // 鼠标移动时更新位置
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging || !currentHeart) return;
+            
+            // 计算新位置
+            const newX = e.clientX - parseFloat(currentHeart.dataset.offsetX);
+            const newY = e.clientY - parseFloat(currentHeart.dataset.offsetY);
+            
+            // 更新位置
+            currentHeart.style.left = `${newX}px`;
+            currentHeart.style.top = `${newY}px`;
+            
+            // 检查是否与另一个爱心重叠
+            checkHeartsOverlap();
+        });
+        
+        // 鼠标释放结束拖拽
+        document.addEventListener('mouseup', function() {
+            if (isDragging && currentHeart) {
+                currentHeart.style.cursor = 'grab';
+                isDragging = false;
+                currentHeart = null;
+            }
+        });
+        
+        // 检查两个爱心是否重叠
+        function checkHeartsOverlap() {
+            if (isHeartsCombined) return;
+            
+            const redRect = redHeart.getBoundingClientRect();
+            const blueRect = blueHeart.getBoundingClientRect();
+            
+            // 计算中心点
+            const redCenterX = redRect.left + redRect.width / 2;
+            const redCenterY = redRect.top + redRect.height / 2;
+            const blueCenterX = blueRect.left + blueRect.width / 2;
+            const blueCenterY = blueRect.top + blueRect.height / 2;
+            
+            // 计算距离
+            const distance = Math.sqrt(
+                Math.pow(redCenterX - blueCenterX, 2) + 
+                Math.pow(redCenterY - blueCenterY, 2)
+            );
+            
+            console.log('Distance between hearts:', distance);
+            
+            // 如果距离小于阈值，合并爱心
+            if (distance < 100) {
+                combineHearts();
+            }
+        }
+        
+        // 合并爱心
+        function combineHearts() {
+            isHeartsCombined = true;
+            
+            // 获取两个爱心的中心点
+            const redRect = redHeart.getBoundingClientRect();
+            const blueRect = blueHeart.getBoundingClientRect();
+            const centerX = (redRect.left + blueRect.left) / 2 + redRect.width / 2;
+            const centerY = (redRect.top + blueRect.top) / 2 + redRect.height / 2;
+            
+            // 创建合并动画
+            gsap.timeline()
+                .to([redHeart, blueHeart], {
+                    x: 0,
+                    y: 0,
+                    scale: 1.2,
+                    duration: 0.8,
+                    ease: "back.out(1.7)",
+                    onComplete: () => {
+                        // 隐藏爱心容器
+                        gsap.to(heartsContainer, {
+                            opacity: 0,
+                            duration: 0.5,
+                            onComplete: () => {
+                                heartsContainer.style.display = 'none';
+                                
+                                // 显示爱心树
+                                heartTreeContainer.classList.add('visible');
+                                
+                                // 延迟显示计时器
+                                setTimeout(() => {
+                                    timerContainer.classList.add('visible');
+                                    startTimer();
+                                    
+                                    // 延迟显示照片
+                                    setTimeout(() => {
+                                        photosContainer.classList.add('visible');
+                                        showPhotosSequentially();
+                                    }, 1000);
+                                }, 1000);
+                            }
+                        });
+                    }
+                });
+            
+            // 创建小爱心特效
+            createHeartBurst(centerX, centerY);
+        }
+        
+        // 创建爱心爆炸特效
+        function createHeartBurst(x, y) {
+            // 创建20个小爱心
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    // 随机角度和距离
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = Math.random() * 100 + 50;
+                    
+                    // 计算目标位置
+                    const targetX = x + Math.cos(angle) * distance;
+                    const targetY = y + Math.sin(angle) * distance;
+                    
+                    // 创建小爱心
+                    const heart = document.createElement('div');
+                    heart.className = 'absolute pointer-events-none z-20';
+                    
+                    // 随机大小和颜色
+                    const size = Math.random() * 15 + 10;
+                    const colors = ['#ff3b30', '#007aff', '#ffcc00', '#34c759', '#af52de'];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    
+                    heart.innerHTML = `
+                        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z"/>
+                        </svg>
+                    `;
+                    
+                    // 设置初始位置
+                    heart.style.left = `${x}px`;
+                    heart.style.top = `${y}px`;
+                    heart.style.transform = 'translate(-50%, -50%)';
+                    
+                    // 添加到页面
+                    document.body.appendChild(heart);
+                    
+                    // 动画
+                    gsap.timeline()
+                        .to(heart, {
+                            left: targetX,
+                            top: targetY,
+                            duration: 1,
+                            ease: "power1.out"
+                        })
+                        .to(heart, {
+                            opacity: 0,
+                            scale: 0,
+                            duration: 0.5,
+                            delay: 0.2,
+                            onComplete: () => {
+                                document.body.removeChild(heart);
+                            }
+                        });
+                }, i * 50);
+            }
+        }
+        
+        // 开始计时器
+        function startTimer() {
+            const startDate = new Date('2025-02-02T17:45:28');
+            
+            // 更新计时器函数
+            function updateTimer() {
+                const now = new Date();
+                const diff = now - startDate;
+                
+                // 计算时间差
+                const years = Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+                const months = Math.floor((diff % (365.25 * 24 * 60 * 60 * 1000)) / (30.44 * 24 * 60 * 60 * 1000));
+                const days = Math.floor((diff % (30.44 * 24 * 60 * 60 * 1000)) / (24 * 60 * 60 * 1000));
+                const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+                const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+                const seconds = Math.floor((diff % (60 * 1000)) / 1000);
+                
+                // 更新DOM
+                document.getElementById('years').textContent = years;
+                document.getElementById('months').textContent = months;
+                document.getElementById('days').textContent = days;
+                document.getElementById('hours').textContent = hours;
+                document.getElementById('minutes').textContent = minutes;
+                document.getElementById('seconds').textContent = seconds;
+            }
+            
+            // 立即更新一次
+            updateTimer();
+            
+            // 设置定时器每秒更新
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+        
+        // 顺序显示照片
+        function showPhotosSequentially() {
+            photoItems.forEach((item, index) => {
+                setTimeout(() => {
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateY(0)';
+                }, index * 300);
+            });
+        }
+        
+        // 打开图片查看器
+        function openModal(data) {
+            const modal = document.getElementById('image-modal');
+            const modalImg = document.getElementById('modal-img');
+            const modalTitle = document.getElementById('modal-title');
+            const modalDescription = document.getElementById('modal-description');
+            
+            // 设置内容
+            modalImg.src = data.img;
+            modalTitle.textContent = data.title;
+            modalDescription.textContent = data.description;
+            
+            // 显示模态框
+            modal.style.display = 'block';
+            
+            // 添加显示动画
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+            
+            // 阻止事件冒泡
+            const modalContent = document.getElementById('modal-content');
+            modalImg.onclick = function(e) {
+                e.stopPropagation();
+            };
+            modalContent.onclick = function(e) {
+                e.stopPropagation();
+            };
+        }
+        
+        // 关闭图片查看器
+        function closeModal() {
+            const modal = document.getElementById('image-modal');
+            
+            modal.classList.remove('show');
+            
+            // 等待动画完成后隐藏
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+        }
+        
+        // 为照片添加爱心特效
+        document.querySelectorAll('.photo-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                createHeartEffect(e.clientX, e.clientY);
+            });
+            
+            item.addEventListener('mouseover', function(e) {
+                // 鼠标悬停时创建少量爱心
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        const offsetX = (Math.random() - 0.5) * 100;
+                        const offsetY = (Math.random() - 0.5) * 100;
+                        createHeartEffect(e.clientX + offsetX, e.clientY + offsetY, true);
+                    }, i * 100);
+                }
+            });
+        });
+        
+        // 创建爱心特效
+        function createHeartEffect(x, y, isSmall = false) {
+            const heartEffect = document.createElement('div');
+            heartEffect.className = 'heart-animation';
+            
+            // 随机颜色
+            const colors = ['#ff3b30', '#007aff', '#ffcc00', '#34c759', '#af52de'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            // 设置大小
+            const size = isSmall ? Math.random() * 10 + 10 : Math.random() * 20 + 20;
+            
+            heartEffect.innerHTML = `
+                <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 21.35L10.55 20.03C5.4 15.36 2 12.28 2 8.5C2 5.42 4.42 3 7.5 3C9.24 3 10.91 3.81 12 5.09C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.42 22 8.5C22 12.28 18.6 15.36 13.45 20.03L12 21.35Z"/>
+                </svg>
+            `;
+            
+            // 设置位置
+            heartEffect.style.left = `${x}px`;
+            heartEffect.style.top = `${y}px`;
+            
+            // 添加到页面
+            document.body.appendChild(heartEffect);
+            
+            // 动画
+            gsap.to(heartEffect, {
+                y: '-=100',
+                opacity: 0,
+                rotation: Math.random() * 360 - 180,
+                duration: isSmall ? 1 : 2,
+                ease: "power1.out",
+                onComplete: () => {
+                    document.body.removeChild(heartEffect);
+                }
+            });
+        }
+        
+        // 点击关闭按钮关闭模态框
+        document.querySelector('.close').addEventListener('click', closeModal);
+        
+        // 点击模态框背景关闭模态框
+        document.getElementById('image-modal').addEventListener('click', closeModal);
+    </script>
+
+</body></html>

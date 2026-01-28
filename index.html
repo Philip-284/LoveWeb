@@ -411,11 +411,11 @@
                         <div class="flex items-center space-x-4">
                             <button class="flex items-center space-x-1 text-gray-500 hover:text-red-500 transition-colors">
                                 <i class="fa fa-heart-o text-lg"></i>
-                                <span class="text-sm"></span>
+                                <span class="text-sm">128</span>
                             </button>
                             <button class="flex items-center space-x-1 text-gray-500 hover:text-blue-500 transition-colors">
                                 <i class="fa fa-comment-o text-lg"></i>
-                                <span class="text-sm"></span>
+                                <span class="text-sm">24</span>
                             </button>
                         </div>
                         <button class="text-gray-500 hover:text-gray-700 transition-colors">
@@ -446,38 +446,58 @@
         let isDragging = false;
         let currentHeart = null;
         
-        // 为爱心添加鼠标事件
+        // 为爱心添加鼠标事件和触摸事件
         [redHeart, blueHeart].forEach(heart => {
             // 鼠标按下开始拖拽
-            heart.addEventListener('mousedown', function(e) {
-                isDragging = true;
-                currentHeart = this;
-                this.style.cursor = 'grabbing';
-                
-                // 记录初始位置
-                const rect = this.getBoundingClientRect();
-                this.dataset.offsetX = e.clientX - rect.left;
-                this.dataset.offsetY = e.clientY - rect.top;
-                
-                // 设置为绝对定位
-                this.style.position = 'absolute';
-                this.style.zIndex = '10';
-                this.style.left = `${rect.left}px`;
-                this.style.top = `${rect.top}px`;
-                this.style.margin = '0';
-                
-                // 阻止默认行为和冒泡
-                e.preventDefault();
-            });
+            heart.addEventListener('mousedown', startDrag);
+            
+            // 触摸开始拖拽
+            heart.addEventListener('touchstart', startDrag, { passive: false });
         });
         
+        // 开始拖拽函数
+        function startDrag(e) {
+            e.preventDefault(); // 阻止默认行为
+            isDragging = true;
+            currentHeart = this;
+            this.style.cursor = 'grabbing';
+            
+            // 获取触摸点或鼠标位置
+            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+            
+            // 记录初始位置
+            const rect = this.getBoundingClientRect();
+            this.dataset.offsetX = clientX - rect.left;
+            this.dataset.offsetY = clientY - rect.top;
+            
+            // 设置为绝对定位
+            this.style.position = 'absolute';
+            this.style.zIndex = '10';
+            this.style.left = `${rect.left}px`;
+            this.style.top = `${rect.top}px`;
+            this.style.margin = '0';
+        }
+        
         // 鼠标移动时更新位置
-        document.addEventListener('mousemove', function(e) {
+        document.addEventListener('mousemove', updatePosition);
+        
+        // 触摸移动时更新位置
+        document.addEventListener('touchmove', updatePosition, { passive: false });
+        
+        // 更新位置函数
+        function updatePosition(e) {
             if (!isDragging || !currentHeart) return;
             
+            e.preventDefault(); // 阻止默认行为（如页面滚动）
+            
+            // 获取触摸点或鼠标位置
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+            
             // 计算新位置
-            const newX = e.clientX - parseFloat(currentHeart.dataset.offsetX);
-            const newY = e.clientY - parseFloat(currentHeart.dataset.offsetY);
+            const newX = clientX - parseFloat(currentHeart.dataset.offsetX);
+            const newY = clientY - parseFloat(currentHeart.dataset.offsetY);
             
             // 更新位置
             currentHeart.style.left = `${newX}px`;
@@ -485,16 +505,23 @@
             
             // 检查是否与另一个爱心重叠
             checkHeartsOverlap();
-        });
+        }
         
         // 鼠标释放结束拖拽
-        document.addEventListener('mouseup', function() {
+        document.addEventListener('mouseup', endDrag);
+        
+        // 触摸结束拖拽
+        document.addEventListener('touchend', endDrag);
+        document.addEventListener('touchcancel', endDrag);
+        
+        // 结束拖拽函数
+        function endDrag() {
             if (isDragging && currentHeart) {
                 currentHeart.style.cursor = 'grab';
                 isDragging = false;
                 currentHeart = null;
             }
-        });
+        }
         
         // 检查两个爱心是否重叠
         function checkHeartsOverlap() {
